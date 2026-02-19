@@ -8,6 +8,7 @@ from playwright.async_api import async_playwright, BrowserContext
 
 from mjas.portals.base import JobPortal, ApplicationResult, CandidateProfile
 from mjas.core.database import Database, JobStatus
+from mjas.core.session_manager import SessionManager
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +21,14 @@ class PortalWorker:
         portal: JobPortal,
         database: Database,
         profile: CandidateProfile,
-        headless: bool = True
+        headless: bool = True,
+        session_manager: Optional[SessionManager] = None
     ):
         self.portal = portal
         self.db = database
         self.profile = profile
         self.headless = headless
+        self.session_manager = session_manager
         self.context: Optional[BrowserContext] = None
         self.playwright = None
         self.browser = None
@@ -41,10 +44,29 @@ class PortalWorker:
             "viewport": {"width": 1920, "height": 1080},
             "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
+
+        # Try to load existing session
+        session_data = None
+        if self.session_manager:
+            session_data = self.session_manager.load_session(self.portal.config.name)
+            if session_data:
+                logger.info(f"{self.portal.config.name}: Loaded existing session")
+                context_options["storage_state"] = session_data
+
         self.context = await self.browser.new_context(**context_options)
 
-        # Login
+        # Check if already logged in from session
+        if session_data and self.portal.config.requires_login:
+            if await self.portal.is_logged_in(self.context):
+                logger.info(f"{self.portal.config.name}: Session is valid, already logged in")
+                return True
+            else:
+                logger.warning(f"{self.portal.config.name}: Session expired, needs re-login")
+
+        # Login if required
         if self.portal.config.requires_login:
+            if not session_data:
+                logger.warning(f"{self.portal.config.name}: No session found, login required")
             success = await self.portal.login(self.context)
             if not success:
                 logger.error(f"{self.portal.config.name}: Login failed")
@@ -214,3 +236,26 @@ class PortalWorker:
         if self.playwright:
             await self.playwright.stop()
         logger.info(f"{self.portal.config.name}: Worker stopped")
+
+    async def save_session(self) -> bool:
+        """Save current browser session to disk.
+
+        Returns:
+            True if session was saved successfully, False otherwise.
+        """
+        if not self.session_manager:
+            logger.warning(f"{self.portal.config.name}: No session manager configured")
+            return False
+
+        if not self.context:
+            logger.warning(f"{self.portal.config.name}: No browser context to save")
+            return False
+
+        try:
+            storage_state = await self.context.storage_state()
+            self.session_manager.save_session(self.portal.config.name, storage_state)
+            logger.info(f"{self.portal.config.name}: Session saved successfully")
+            return True
+        except Exception as e:
+            logger.error(f"{self.portal.config.name}: Failed to save session: {e}")
+            return False
