@@ -173,7 +173,8 @@ async def cmd_stats(args):
     print(f"Successfully applied: {stats.get('applied', 0)}")
     print(f"Failed: {stats.get('failed', 0)}")
     print(f"Queued: {stats.get('queued', 0)}")
-    print(f"Average score: {stats.get('avg_score', 0):.1f}")
+    avg_score = stats.get('avg_score') or 0
+    print(f"Average score: {avg_score:.1f}")
 
     if portal_stats:
         print("\n=== By Portal ===")
