@@ -73,7 +73,7 @@ class SwarmOrchestrator:
                 portals = TIER_1_PORTALS  # Default to tier 1
 
         credentials = self.vault.get_credentials()
-        creds_dict = credentials.model_dump(by_alias=True)
+        creds_dict = credentials.model_dump(by_alias=False)
 
         for portal_name in portals:
             try:
