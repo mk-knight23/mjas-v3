@@ -6,3 +6,5 @@ across multiple job portals.
 
 __version__ = "3.0.0"
 __author__ = "Mikazi"
+
+__all__ = ["__version__", "__author__"]
