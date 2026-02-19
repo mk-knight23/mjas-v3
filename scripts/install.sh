@@ -49,24 +49,20 @@ if [ ! -f "config/musharraf_kazi_resume.pdf" ]; then
     echo
 fi
 
-echo "2. Set up credentials using the wizard:"
-echo "   python scripts/setup_credentials.py"
-echo
-
-echo "3. Or manually copy the template:"
-echo "   cp config/credentials.env.example config/credentials.env"
-echo "   # Edit with your credentials"
-echo
-
-echo "4. Encrypt credentials:"
+echo "2. Initialize database:"
 echo "   python -m mjas setup"
 echo
 
-echo "5. List available portals:"
+echo "3. Setup browser sessions (interactive):"
+echo "   python -m mjas setup-sessions"
+echo "   Use your Gmail: kazimusharraf1234@gmail.com"
+echo
+
+echo "4. List available portals:"
 echo "   python -m mjas list-portals"
 echo
 
-echo "6. Run a test cycle:"
+echo "5. Run a test cycle:"
 echo "   python -m mjas run --visible --tier 1"
 echo
 

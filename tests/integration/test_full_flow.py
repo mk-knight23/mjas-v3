@@ -5,7 +5,6 @@ import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from mjas.core.vault import CredentialVault
 from mjas.core.database import Database, JobStatus
 from mjas.core.swarm import SwarmOrchestrator, SwarmConfig
 from mjas.portals.base import CandidateProfile, JobListing, JobQuery
@@ -124,17 +123,8 @@ async def test_database_portal_stats(test_db):
 @pytest.mark.asyncio
 async def test_swarm_initialization(test_db, test_profile, tmp_path):
     """Test swarm can be initialized with config."""
-    # Create mock vault
-    mock_vault = MagicMock()
-    mock_creds = MagicMock()
-    mock_creds.model_dump.return_value = {
-        "linkedin_email": "test@example.com",
-        "linkedin_password": "test"
-    }
-    mock_vault.get_credentials.return_value = mock_creds
-
     config = SwarmConfig(headless=True, daily_application_target=100)
-    swarm = SwarmOrchestrator(config, mock_vault, test_db, test_profile)
+    swarm = SwarmOrchestrator(config, test_db, test_profile)
 
     assert swarm.config.headless is True
     assert swarm.config.daily_application_target == 100

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from mjas.core.database import Database
 from mjas.core.swarm import SwarmConfig, SwarmOrchestrator
-from mjas.core.vault import CredentialVault
+from mjas.core.session_manager import SessionManager
 from mjas.portals.base import CandidateProfile
 from mjas.portals.registry import (
     NO_LOGIN_PORTALS,
@@ -53,40 +53,20 @@ def load_candidate_profile() -> CandidateProfile:
 
 
 async def cmd_setup(args):
-    """Initialize system, encrypt credentials."""
+    """Initialize system (database only)."""
     print("MJAS v3.0 Setup")
     print("=" * 40)
     print()
-
-    vault = CredentialVault()
-
-    # Check if credentials file exists
-    creds_file = Path("config/credentials.env")
-    if not creds_file.exists():
-        print(f"ERROR: {creds_file} not found!")
-        print("Copy config/credentials.env.example and fill in your details")
-        print("Or run: python scripts/credential_wizard.py")
-        return 1
-
-    # Parse and encrypt - local imports to avoid circular deps
-    import os  # noqa: I001
-    from dotenv import load_dotenv  # noqa: I001
-
-    load_dotenv(creds_file)
-    credentials = dict(os.environ)
-
-    vault.encrypt_credentials(credentials)
-    print("Credentials encrypted successfully")
-    print(f"Key saved to: {vault.key_file}")
-    print(f"Encrypted data saved to: {vault.creds_file}")
-    print()
-    print("IMPORTANT: Keep the .key file safe!")
 
     # Initialize database
     db = Database()
     await db.init()
     print(f"Database initialized at: {db.db_path}")
     await db.close()
+
+    print()
+    print("Next: Setup browser sessions with Google Sign-In")
+    print("  python -m mjas setup-sessions")
 
     return 0
 
@@ -95,21 +75,21 @@ async def cmd_run(args):
     """Run full cycle."""
     setup_logging(args.verbose)
 
-    vault = CredentialVault()
     db = Database()
     await db.init()
 
+    session_mgr = SessionManager()
     profile = load_candidate_profile()
     config = SwarmConfig(
         headless=not args.visible,
         daily_application_target=args.target
     )
 
-    swarm = SwarmOrchestrator(config, vault, db, profile)
+    swarm = SwarmOrchestrator(config, db, profile, session_mgr)
     await swarm.initialize_workers(args.portals, tier=args.tier)
 
     if not swarm.workers:
-        print("ERROR: No workers initialized. Check credentials.")
+        print("ERROR: No workers initialized. Check session setup.")
         return 1
 
     if args.continuous:
@@ -290,7 +270,8 @@ async def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python -m mjas setup                    # Initialize and encrypt credentials
+  python -m mjas setup                    # Initialize database
+  python -m mjas setup-sessions           # Setup browser sessions
   python -m mjas run                      # Run one full cycle
   python -m mjas run --continuous         # Run continuously
   python -m mjas run --visible            # Show browser window

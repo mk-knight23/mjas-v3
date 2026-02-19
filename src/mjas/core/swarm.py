@@ -6,8 +6,8 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
-from mjas.core.vault import CredentialVault
 from mjas.core.database import Database
+from mjas.core.session_manager import SessionManager
 from mjas.portals.base import CandidateProfile
 from mjas.portals.registry import get_portal, TIER_1_PORTALS, TIER_2_PORTALS, TIER_3_PORTALS
 from mjas.core.worker import PortalWorker
@@ -44,14 +44,14 @@ class SwarmOrchestrator:
     def __init__(
         self,
         config: SwarmConfig,
-        vault: CredentialVault,
         database: Database,
-        profile: CandidateProfile
+        profile: CandidateProfile,
+        session_manager: Optional[SessionManager] = None
     ):
         self.config = config
-        self.vault = vault
         self.db = database
         self.profile = profile
+        self.session_manager = session_manager or SessionManager()
         self.workers: Dict[str, PortalWorker] = {}
         self._running = False
 
@@ -72,17 +72,15 @@ class SwarmOrchestrator:
             else:
                 portals = TIER_1_PORTALS  # Default to tier 1
 
-        credentials = self.vault.get_credentials()
-        creds_dict = credentials.model_dump(by_alias=False)
-
         for portal_name in portals:
             try:
-                portal = get_portal(portal_name, creds_dict)
+                portal = get_portal(portal_name, {})
                 worker = PortalWorker(
                     portal=portal,
                     database=self.db,
                     profile=self.profile,
-                    headless=self.config.headless
+                    headless=self.config.headless,
+                    session_manager=self.session_manager
                 )
 
                 success = await worker.start()
