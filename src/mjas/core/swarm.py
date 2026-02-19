@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from mjas.core.vault import CredentialVault
 from mjas.core.database import Database
 from mjas.portals.base import CandidateProfile
-from mjas.portals.registry import get_portal
+from mjas.portals.registry import get_portal, TIER_1_PORTALS, TIER_2_PORTALS, TIER_3_PORTALS
 from mjas.core.worker import PortalWorker
 
 logger = logging.getLogger(__name__)
@@ -55,10 +55,22 @@ class SwarmOrchestrator:
         self.workers: Dict[str, PortalWorker] = {}
         self._running = False
 
-    async def initialize_workers(self, portals: Optional[List[str]] = None) -> None:
-        """Initialize workers for specified portals."""
+    async def initialize_workers(self, portals: Optional[List[str]] = None, tier: Optional[int] = None) -> None:
+        """Initialize workers for specified portals.
+
+        Args:
+            portals: Specific list of portal names, or None for default
+            tier: Portal tier to use (1, 2, or 3). Ignored if portals is specified.
+        """
         if portals is None:
-            portals = ["linkedin"]
+            if tier == 1:
+                portals = TIER_1_PORTALS
+            elif tier == 2:
+                portals = TIER_2_PORTALS
+            elif tier == 3:
+                portals = TIER_3_PORTALS
+            else:
+                portals = TIER_1_PORTALS  # Default to tier 1
 
         credentials = self.vault.get_credentials()
         creds_dict = credentials.model_dump(by_alias=True)

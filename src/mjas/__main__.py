@@ -10,6 +10,11 @@ from mjas.core.vault import CredentialVault
 from mjas.core.database import Database
 from mjas.core.swarm import SwarmOrchestrator, SwarmConfig
 from mjas.portals.base import CandidateProfile
+from mjas.portals.registry import (
+    list_portals, list_portals_by_tier,
+    TIER_1_PORTALS, TIER_2_PORTALS, TIER_3_PORTALS,
+    NO_LOGIN_PORTALS, TECH_PORTALS
+)
 
 
 def setup_logging(verbose: bool = False):
@@ -99,7 +104,7 @@ async def cmd_run(args):
     )
 
     swarm = SwarmOrchestrator(config, vault, db, profile)
-    await swarm.initialize_workers(args.portals)
+    await swarm.initialize_workers(args.portals, tier=args.tier)
 
     if not swarm.workers:
         print("ERROR: No workers initialized. Check credentials.")
@@ -116,6 +121,42 @@ async def cmd_run(args):
 
     await swarm.shutdown()
     await db.close()
+    return 0
+
+
+async def cmd_list_portals(args):
+    """List available job portals."""
+    print("\n=== MJAS Job Portals ===\n")
+
+    print("Tier 1 (Major Platforms):")
+    for portal in TIER_1_PORTALS:
+        marker = "🌐" if portal in NO_LOGIN_PORTALS else "🔐"
+        tech = " [Tech]" if portal in TECH_PORTALS else ""
+        print(f"  {marker} {portal}{tech}")
+
+    print("\nTier 2 (Secondary Platforms):")
+    for portal in TIER_2_PORTALS:
+        marker = "🌐" if portal in NO_LOGIN_PORTALS else "🔐"
+        tech = " [Tech]" if portal in TECH_PORTALS else ""
+        print(f"  {marker} {portal}{tech}")
+
+    print("\nTier 3 (Specialized/Curated):")
+    for portal in TIER_3_PORTALS:
+        marker = "🌐" if portal in NO_LOGIN_PORTALS else "🔐"
+        tech = " [Tech]" if portal in TECH_PORTALS else ""
+        print(f"  {marker} {portal}{tech}")
+
+    print("\n=== Legend ===")
+    print("  🔐 = Requires login")
+    print("  🌐 = No login required")
+    print("  [Tech] = AI/Tech focused portal")
+    print("\n=== Usage ===")
+    print("  python -m mjas run --tier 1      # Use Tier 1 portals only")
+    print("  python -m mjas run --tier 2      # Use Tier 2 portals only")
+    print("  python -m mjas run --tier 3      # Use Tier 3 portals only")
+    print("  python -m mjas run --portals linkedin indeed  # Use specific portals")
+    print()
+
     return 0
 
 
@@ -166,6 +207,7 @@ Examples:
     # Run command
     run_parser = subparsers.add_parser('run', help='Run full cycle')
     run_parser.add_argument('--portals', nargs='+', help='Specific portals to use')
+    run_parser.add_argument('--tier', type=int, choices=[1, 2, 3], help='Portal tier (1=major, 2=secondary, 3=specialized)')
     run_parser.add_argument('--visible', action='store_true', help='Show browser window')
     run_parser.add_argument('--continuous', action='store_true', help='Run continuously')
     run_parser.add_argument('--interval', type=int, default=120, help='Minutes between cycles')
@@ -174,6 +216,9 @@ Examples:
 
     # Stats command
     stats_parser = subparsers.add_parser('stats', help='Show statistics')
+
+    # List portals command
+    list_parser = subparsers.add_parser('list-portals', help='List available job portals')
 
     args = parser.parse_args()
 
@@ -191,6 +236,7 @@ Examples:
         'setup': cmd_setup,
         'run': cmd_run,
         'stats': cmd_stats,
+        'list-portals': cmd_list_portals,
     }
 
     handler = handlers.get(args.command)
