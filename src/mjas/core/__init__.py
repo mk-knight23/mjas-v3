@@ -5,5 +5,16 @@ the MJAS job application automation system.
 """
 
 from mjas.core.vault import CredentialVault, Credentials
+from mjas.core.database import Database, JobStatus
+from mjas.core.swarm import SwarmOrchestrator, SwarmConfig
+from mjas.core.worker import PortalWorker
 
-__all__ = ["CredentialVault", "Credentials"]
+__all__ = [
+    "CredentialVault",
+    "Credentials",
+    "Database",
+    "JobStatus",
+    "SwarmOrchestrator",
+    "SwarmConfig",
+    "PortalWorker",
+]
