@@ -1,19 +1,21 @@
 """MJAS v3.0 - Main entry point."""
 
-import asyncio
 import argparse
+import asyncio
 import logging
 import sys
 from pathlib import Path
 
-from mjas.core.vault import CredentialVault
 from mjas.core.database import Database
-from mjas.core.swarm import SwarmOrchestrator, SwarmConfig
+from mjas.core.swarm import SwarmConfig, SwarmOrchestrator
+from mjas.core.vault import CredentialVault
 from mjas.portals.base import CandidateProfile
 from mjas.portals.registry import (
-    list_portals, list_portals_by_tier,
-    TIER_1_PORTALS, TIER_2_PORTALS, TIER_3_PORTALS,
-    NO_LOGIN_PORTALS, TECH_PORTALS
+    NO_LOGIN_PORTALS,
+    TECH_PORTALS,
+    TIER_1_PORTALS,
+    TIER_2_PORTALS,
+    TIER_3_PORTALS,
 )
 
 
@@ -66,9 +68,9 @@ async def cmd_setup(args):
         print("Or run: python scripts/credential_wizard.py")
         return 1
 
-    # Parse and encrypt
-    import os
-    from dotenv import load_dotenv
+    # Parse and encrypt - local imports to avoid circular deps
+    import os  # noqa: I001
+    from dotenv import load_dotenv  # noqa: I001
 
     load_dotenv(creds_file)
     credentials = dict(os.environ)
@@ -203,7 +205,7 @@ Examples:
     subparsers = parser.add_subparsers(dest='command', help='Command to run')
 
     # Setup command
-    setup_parser = subparsers.add_parser('setup', help='Initialize system')
+    subparsers.add_parser('setup', help='Initialize system')
 
     # Run command
     run_parser = subparsers.add_parser('run', help='Run full cycle')
@@ -216,10 +218,10 @@ Examples:
     run_parser.add_argument('-v', '--verbose', action='store_true')
 
     # Stats command
-    stats_parser = subparsers.add_parser('stats', help='Show statistics')
+    subparsers.add_parser('stats', help='Show statistics')
 
     # List portals command
-    list_parser = subparsers.add_parser('list-portals', help='List available job portals')
+    subparsers.add_parser('list-portals', help='List available job portals')
 
     args = parser.parse_args()
 
