@@ -38,13 +38,29 @@ class CareerBuilderPortal(JobPortal):
         super().__init__(self.DEFAULT_CONFIG, credentials)
 
     async def login(self, context: BrowserContext) -> bool:
-        """Login to CareerBuilder."""
-        logger.info("CareerBuilder login - implementation placeholder")
-        return True
+        """Login to CareerBuilder - expects pre-authenticated session."""
+        if await self.is_logged_in(context):
+            logger.info("CareerBuilder: Already logged in (session)")
+            return True
+
+        logger.error("CareerBuilder: Not logged in - run 'setup-sessions' first")
+        return False
 
     async def is_logged_in(self, context: BrowserContext) -> bool:
-        """Check if logged in."""
-        return True
+        """Check if logged in to CareerBuilder."""
+        page = await context.new_page()
+        try:
+            await page.goto("https://www.careerbuilder.com/profile", wait_until="domcontentloaded")
+            # Check for profile page indicator
+            profile_indicator = await page.query_selector("[data-testid='profile-header']") or \
+                               await page.query_selector(".profile-container") or \
+                               await page.query_selector("a[href*='logout']") or \
+                               await page.query_selector(".user-dashboard")
+            return profile_indicator is not None
+        except:
+            return False
+        finally:
+            await page.close()
 
     async def search_jobs(self, context: BrowserContext, query: JobQuery) -> List[JobListing]:
         """Search CareerBuilder jobs."""

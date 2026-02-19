@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import logging
 from typing import List, Tuple, Optional
-from playwright.async_api import Page, BrowserContext, TimeoutError as PlaywrightTimeout
+from playwright.async_api import Page, BrowserContext
 
 from mjas.portals.base import (
     JobPortal, PortalConfig, JobListing, JobQuery,
@@ -42,52 +42,15 @@ class LinkedInPortal(JobPortal):
 
     def __init__(self, credentials: Optional[dict] = None):
         super().__init__(self.DEFAULT_CONFIG, credentials)
-        self.email = credentials.get("linkedin_email") if credentials else None
-        self.password = credentials.get("linkedin_password") if credentials else None
 
     async def login(self, context: BrowserContext) -> bool:
-        """Login to LinkedIn."""
-        if not self.email or not self.password:
-            logger.error("LinkedIn credentials not configured")
-            return False
+        """Login to LinkedIn - expects pre-authenticated session."""
+        if await self.is_logged_in(context):
+            logger.info("LinkedIn: Already logged in (session)")
+            return True
 
-        page = await context.new_page()
-        try:
-            logger.info("Navigating to LinkedIn login...")
-            await page.goto("https://www.linkedin.com/login", wait_until="domcontentloaded")
-
-            # Fill credentials
-            await page.fill(self.config.selectors["login_email"], self.email)
-            await page.fill(self.config.selectors["login_password"], self.password)
-
-            # Click login
-            await page.click(self.config.selectors["login_button"])
-
-            # Wait for navigation
-            await page.wait_for_load_state("networkidle")
-
-            # Check for CAPTCHA
-            if await self._detect_captcha(page):
-                logger.warning("CAPTCHA detected - human intervention required")
-                await page.screenshot(path="logs/linkedin_captcha.png")
-                return False
-
-            # Verify login success
-            if await self.is_logged_in(context):
-                logger.info("LinkedIn login successful")
-                return True
-            else:
-                logger.error("LinkedIn login failed - check credentials")
-                return False
-
-        except PlaywrightTimeout:
-            logger.error("LinkedIn login timeout")
-            return False
-        except Exception as e:
-            logger.error(f"LinkedIn login error: {e}")
-            return False
-        finally:
-            await page.close()
+        logger.error("LinkedIn: Not logged in - run 'setup-sessions' first")
+        return False
 
     async def is_logged_in(self, context: BrowserContext) -> bool:
         """Check if logged into LinkedIn."""

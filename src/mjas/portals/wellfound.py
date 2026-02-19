@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import logging
 from typing import List, Tuple, Optional
-from playwright.async_api import BrowserContext, TimeoutError as PlaywrightTimeout
+from playwright.async_api import BrowserContext
 
 from mjas.portals.base import (
     JobPortal, PortalConfig, JobListing, JobQuery,
@@ -39,39 +39,15 @@ class WellfoundPortal(JobPortal):
 
     def __init__(self, credentials: Optional[dict] = None):
         super().__init__(self.DEFAULT_CONFIG, credentials)
-        self.email = credentials.get("wellfound_email") if credentials else None
-        self.password = credentials.get("wellfound_password") if credentials else None
 
     async def login(self, context: BrowserContext) -> bool:
-        """Login to Wellfound."""
-        if not self.email or not self.password:
-            logger.error("Wellfound credentials not configured")
-            return False
+        """Login to Wellfound - expects pre-authenticated session."""
+        if await self.is_logged_in(context):
+            logger.info("Wellfound: Already logged in (session)")
+            return True
 
-        page = await context.new_page()
-        try:
-            logger.info("Navigating to Wellfound login...")
-            await page.goto("https://wellfound.com/login", wait_until="domcontentloaded")
-
-            await page.fill(self.config.selectors["login_email"], self.email)
-            await page.fill(self.config.selectors["login_password"], self.password)
-            await page.click(self.config.selectors["login_button"])
-
-            await page.wait_for_load_state("networkidle")
-            await asyncio.sleep(3)
-
-            if await self.is_logged_in(context):
-                logger.info("Wellfound login successful")
-                return True
-            else:
-                logger.error("Wellfound login failed")
-                return False
-
-        except Exception as e:
-            logger.error(f"Wellfound login error: {e}")
-            return False
-        finally:
-            await page.close()
+        logger.error("Wellfound: Not logged in - run 'setup-sessions' first")
+        return False
 
     async def is_logged_in(self, context: BrowserContext) -> bool:
         """Check if logged in."""

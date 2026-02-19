@@ -35,13 +35,29 @@ class OttaPortal(JobPortal):
         super().__init__(self.DEFAULT_CONFIG, credentials)
 
     async def login(self, context: BrowserContext) -> bool:
-        """Login to Otta."""
-        logger.info("Otta login - implementation placeholder")
-        return True
+        """Login to Otta - expects pre-authenticated session."""
+        if await self.is_logged_in(context):
+            logger.info("Otta: Already logged in (session)")
+            return True
+
+        logger.error("Otta: Not logged in - run 'setup-sessions' first")
+        return False
 
     async def is_logged_in(self, context: BrowserContext) -> bool:
-        """Check if logged in."""
-        return True
+        """Check if logged in to Otta."""
+        page = await context.new_page()
+        try:
+            await page.goto("https://app.otta.com/jobs", wait_until="domcontentloaded")
+            # Check for jobs page indicator or user menu
+            logged_in_indicator = await page.query_selector("[data-testid='user-menu']") or \
+                                 await page.query_selector(".user-avatar") or \
+                                 await page.query_selector("a[href*='logout']") or \
+                                 await page.query_selector("button[data-testid='profile-button']")
+            return logged_in_indicator is not None
+        except:
+            return False
+        finally:
+            await page.close()
 
     async def search_jobs(self, context: BrowserContext, query: JobQuery) -> List[JobListing]:
         """Search Otta jobs."""

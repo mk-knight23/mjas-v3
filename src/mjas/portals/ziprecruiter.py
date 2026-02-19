@@ -36,13 +36,28 @@ class ZipRecruiterPortal(JobPortal):
         super().__init__(self.DEFAULT_CONFIG, credentials)
 
     async def login(self, context: BrowserContext) -> bool:
-        """Login to ZipRecruiter."""
-        logger.info("ZipRecruiter login - using saved profile")
-        return True  # Often uses Google OAuth
+        """Login to ZipRecruiter - expects pre-authenticated session."""
+        if await self.is_logged_in(context):
+            logger.info("ZipRecruiter: Already logged in (session)")
+            return True
+
+        logger.error("ZipRecruiter: Not logged in - run 'setup-sessions' first")
+        return False
 
     async def is_logged_in(self, context: BrowserContext) -> bool:
-        """Check if logged in."""
-        return True
+        """Check if logged in to ZipRecruiter."""
+        page = await context.new_page()
+        try:
+            await page.goto("https://www.ziprecruiter.com/candidate/dashboard", wait_until="domcontentloaded")
+            # Check for dashboard indicator (logged in) vs login page
+            dashboard_indicator = await page.query_selector("[data-testid='dashboard-header']") or \
+                                 await page.query_selector(".dashboard-container") or \
+                                 await page.query_selector("a[href*='logout']")
+            return dashboard_indicator is not None
+        except:
+            return False
+        finally:
+            await page.close()
 
     async def search_jobs(self, context: BrowserContext, query: JobQuery) -> List[JobListing]:
         """Search ZipRecruiter jobs."""

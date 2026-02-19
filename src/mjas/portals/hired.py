@@ -36,13 +36,29 @@ class HiredPortal(JobPortal):
         super().__init__(self.DEFAULT_CONFIG, credentials)
 
     async def login(self, context: BrowserContext) -> bool:
-        """Login to Hired."""
-        logger.info("Hired login - implementation placeholder")
-        return True
+        """Login to Hired - expects pre-authenticated session."""
+        if await self.is_logged_in(context):
+            logger.info("Hired: Already logged in (session)")
+            return True
+
+        logger.error("Hired: Not logged in - run 'setup-sessions' first")
+        return False
 
     async def is_logged_in(self, context: BrowserContext) -> bool:
-        """Check if logged in."""
-        return True
+        """Check if logged in to Hired."""
+        page = await context.new_page()
+        try:
+            await page.goto("https://hired.com/opportunities", wait_until="domcontentloaded")
+            # Check for opportunities page or user menu
+            logged_in_indicator = await page.query_selector(".opportunity-card") or \
+                                 await page.query_selector("[data-testid='user-menu']") or \
+                                 await page.query_selector("a[href*='logout']") or \
+                                 await page.query_selector(".candidate-dashboard")
+            return logged_in_indicator is not None
+        except:
+            return False
+        finally:
+            await page.close()
 
     async def search_jobs(self, context: BrowserContext, query: JobQuery) -> List[JobListing]:
         """Get job opportunities from Hired."""

@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import logging
 from typing import List, Tuple, Optional
-from playwright.async_api import BrowserContext, TimeoutError as PlaywrightTimeout
+from playwright.async_api import BrowserContext
 
 from mjas.portals.base import (
     JobPortal, PortalConfig, JobListing, JobQuery,
@@ -44,48 +44,15 @@ class IndeedPortal(JobPortal):
 
     def __init__(self, credentials: Optional[dict] = None):
         super().__init__(self.DEFAULT_CONFIG, credentials)
-        self.email = credentials.get("indeed_email") if credentials else None
-        self.password = credentials.get("indeed_password") if credentials else None
 
     async def login(self, context: BrowserContext) -> bool:
-        """Login to Indeed."""
-        if not self.email or not self.password:
-            logger.error("Indeed credentials not configured")
-            return False
+        """Login to Indeed - expects pre-authenticated session."""
+        if await self.is_logged_in(context):
+            logger.info("Indeed: Already logged in (session)")
+            return True
 
-        page = await context.new_page()
-        try:
-            logger.info("Navigating to Indeed login...")
-            await page.goto("https://secure.indeed.com/account/login", wait_until="domcontentloaded")
-
-            await page.fill(self.config.selectors["login_email"], self.email)
-            await page.fill(self.config.selectors["login_password"], self.password)
-            await page.click(self.config.selectors["login_button"])
-
-            await page.wait_for_load_state("networkidle")
-            await asyncio.sleep(2)
-
-            # Check for CAPTCHA
-            if await self._detect_captcha(page):
-                logger.warning("CAPTCHA detected on Indeed")
-                await page.screenshot(path="logs/indeed_captcha.png")
-                return False
-
-            if await self.is_logged_in(context):
-                logger.info("Indeed login successful")
-                return True
-            else:
-                logger.error("Indeed login failed")
-                return False
-
-        except PlaywrightTimeout:
-            logger.error("Indeed login timeout")
-            return False
-        except Exception as e:
-            logger.error(f"Indeed login error: {e}")
-            return False
-        finally:
-            await page.close()
+        logger.error("Indeed: Not logged in - run 'setup-sessions' first")
+        return False
 
     async def is_logged_in(self, context: BrowserContext) -> bool:
         """Check if logged in."""

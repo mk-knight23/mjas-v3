@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import logging
 from typing import List, Tuple, Optional
-from playwright.async_api import BrowserContext, TimeoutError as PlaywrightTimeout
+from playwright.async_api import BrowserContext
 
 from mjas.portals.base import (
     JobPortal, PortalConfig, JobListing, JobQuery,
@@ -41,40 +41,15 @@ class NaukriPortal(JobPortal):
 
     def __init__(self, credentials: Optional[dict] = None):
         super().__init__(self.DEFAULT_CONFIG, credentials)
-        self.email = credentials.get("naukri_email") if credentials else None
-        self.password = credentials.get("naukri_password") if credentials else None
 
     async def login(self, context: BrowserContext) -> bool:
-        """Login to Naukri."""
-        if not self.email or not self.password:
-            logger.error("Naukri credentials not configured")
-            return False
+        """Login to Naukri - expects pre-authenticated session."""
+        if await self.is_logged_in(context):
+            logger.info("Naukri: Already logged in (session)")
+            return True
 
-        page = await context.new_page()
-        try:
-            logger.info("Navigating to Naukri login...")
-            await page.goto("https://www.naukri.com/nlogin/login", wait_until="domcontentloaded")
-
-            await page.fill(self.config.selectors["login_email"], self.email)
-            await page.fill(self.config.selectors["login_password"], self.password)
-            await page.click(self.config.selectors["login_button"])
-
-            await page.wait_for_load_state("networkidle")
-            await asyncio.sleep(3)
-
-            # Check for profile page redirect
-            if "login" not in page.url:
-                logger.info("Naukri login successful")
-                return True
-            else:
-                logger.error("Naukri login failed")
-                return False
-
-        except Exception as e:
-            logger.error(f"Naukri login error: {e}")
-            return False
-        finally:
-            await page.close()
+        logger.error("Naukri: Not logged in - run 'setup-sessions' first")
+        return False
 
     async def is_logged_in(self, context: BrowserContext) -> bool:
         """Check if logged in."""

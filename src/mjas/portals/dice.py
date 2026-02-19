@@ -38,13 +38,28 @@ class DicePortal(JobPortal):
         super().__init__(self.DEFAULT_CONFIG, credentials)
 
     async def login(self, context: BrowserContext) -> bool:
-        """Login to Dice."""
-        logger.info("Dice login - implementation placeholder")
-        return True
+        """Login to Dice - expects pre-authenticated session."""
+        if await self.is_logged_in(context):
+            logger.info("Dice: Already logged in (session)")
+            return True
+
+        logger.error("Dice: Not logged in - run 'setup-sessions' first")
+        return False
 
     async def is_logged_in(self, context: BrowserContext) -> bool:
-        """Check if logged in."""
-        return True
+        """Check if logged in to Dice."""
+        page = await context.new_page()
+        try:
+            await page.goto("https://www.dice.com/dashboard", wait_until="domcontentloaded")
+            # Check for dashboard/profile indicator
+            profile_indicator = await page.query_selector("[data-cy='profile-menu']") or \
+                               await page.query_selector(".user-profile") or \
+                               await page.query_selector("a[href*='logout']")
+            return profile_indicator is not None
+        except:
+            return False
+        finally:
+            await page.close()
 
     async def search_jobs(self, context: BrowserContext, query: JobQuery) -> List[JobListing]:
         """Search Dice jobs."""

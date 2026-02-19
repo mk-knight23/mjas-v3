@@ -36,28 +36,15 @@ class GlassdoorPortal(JobPortal):
 
     def __init__(self, credentials: Optional[dict] = None):
         super().__init__(self.DEFAULT_CONFIG, credentials)
-        self.email = credentials.get("glassdoor_email") if credentials else None
-        self.password = credentials.get("glassdoor_password") if credentials else None
 
     async def login(self, context: BrowserContext) -> bool:
-        """Login to Glassdoor."""
-        if not self.email or not self.password:
-            logger.error("Glassdoor credentials not configured")
-            return False
+        """Login to Glassdoor - expects pre-authenticated session."""
+        if await self.is_logged_in(context):
+            logger.info("Glassdoor: Already logged in (session)")
+            return True
 
-        page = await context.new_page()
-        try:
-            await page.goto("https://www.glassdoor.com/profile/login_input.htm")
-            await page.fill(self.config.selectors["login_email"], self.email)
-            await page.fill(self.config.selectors["login_password"], self.password)
-            await page.click("button[type='submit']")
-            await asyncio.sleep(3)
-            return await self.is_logged_in(context)
-        except Exception as e:
-            logger.error(f"Glassdoor login error: {e}")
-            return False
-        finally:
-            await page.close()
+        logger.error("Glassdoor: Not logged in - run 'setup-sessions' first")
+        return False
 
     async def is_logged_in(self, context: BrowserContext) -> bool:
         """Check if logged in."""
