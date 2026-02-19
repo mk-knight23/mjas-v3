@@ -7,7 +7,7 @@ An intelligent, agent-based system for automating job applications across multip
 MJAS (Mikazi Job Application Swarm) v3.0 is a Python-based automation framework that uses:
 - **Playwright** for real browser automation
 - **Multi-agent swarm architecture** for parallel job processing
-- **Fernet encryption** for secure credential storage
+- **Browser sessions** for authentication (Google Sign-In)
 - **SQLite database** for job tracking and state management
 - **13 job portals** organized in 3 tiers for maximum coverage
 
@@ -26,31 +26,24 @@ pip install -e ".[dev]"
 playwright install chromium
 ```
 
-### 2. Credential Setup
+### 2. Setup Browser Sessions (One-Time)
 
 ```bash
-# Interactive wizard (recommended)
-python scripts/setup_credentials.py
-
-# Or manual:
-cp config/credentials.env.example config/credentials.env
-# Edit with your credentials
+source .venv/bin/activate
+python -m mjas setup-sessions --visible
 ```
 
-### 3. Encrypt Credentials
+This opens browsers for each portal. Click "Sign in with Google" and login with:
+**kazimusharraf1234@gmail.com**
 
-```bash
-python -m mjas setup
-```
-
-### 4. Start Applying
+### 3. Run
 
 ```bash
 # List all available portals
 python -m mjas list-portals
 
 # Run with Tier 1 portals (LinkedIn, Indeed, Wellfound, Naukri)
-python -m mjas run --visible --tier 1
+python -m mjas run --tier 1
 
 # Run continuously every 2 hours
 python -m mjas run --continuous --tier 1
@@ -97,6 +90,12 @@ MJAS v3.0 Swarm Architecture:
                     │ SQLite  │
                     │ Database│
                     └─────────┘
+
+Browser Sessions (data/sessions/):
+├── linkedin_session.json
+├── indeed_session.json
+├── wellfound_session.json
+└── naukri_session.json
 ```
 
 ## Daily Limits
@@ -124,7 +123,7 @@ MJAS v3.0 Swarm Architecture:
 python -m mjas [command] [options]
 
 Commands:
-  setup          Initialize and encrypt credentials
+  setup-sessions Setup browser sessions with Google Sign-In (one-time)
   run            Run full cycle (research + apply)
   stats          Show statistics
   list-portals   List available job portals
@@ -141,10 +140,11 @@ Run Options:
 
 ## Security
 
-- **Encrypted Credentials**: Fernet/AES-128 encryption
-- **Separate Key Storage**: Encryption key stored separately from encrypted data
-- **File Permissions**: Credential files have user-only access (600)
-- **No Credential Logging**: Database contains only job metadata
+- **Browser Sessions**: Stored in `data/sessions/` as JSON
+- **Session Content**: Cookies and local storage (not passwords)
+- **File Permissions**: Session files have user-only access (600)
+- **No Password Storage**: No credentials stored in code or config
+- **Google Sign-In**: Secure OAuth 2.0 authentication
 - **Screenshots**: Saved to `screenshots/` for visual debugging
 - **Real Browser**: All automation through Playwright (not HTTP requests)
 
@@ -153,7 +153,7 @@ Run Options:
 ```
 .
 ├── src/mjas/              # Main source code
-│   ├── core/              # Core framework (vault, database, swarm, worker)
+│   ├── core/              # Core framework (database, swarm, worker, sessions)
 │   ├── portals/           # Job portal implementations (13 portals)
 │   ├── discovery/         # MCP-powered portal discovery
 │   └── __main__.py        # CLI entry point
@@ -161,39 +161,31 @@ Run Options:
 │   ├── unit/              # Unit tests
 │   └── integration/       # Integration tests
 ├── config/                # Configuration files
-│   ├── credentials.env    # Credentials (gitignored)
-│   └── *.key              # Encryption keys (gitignored)
-├── data/                  # SQLite database
+├── data/                  # SQLite database + browser sessions
+│   ├── sessions/          # Browser session files (gitignored)
+│   └── mjas.db            # Job tracking database
 ├── logs/                  # Log files
 ├── screenshots/           # Debug screenshots
 └── scripts/               # Utility scripts
-    ├── install.sh         # Installation script
-    └── setup_credentials.py  # Credential wizard
+    └── install.sh         # Installation script
 ```
 
 ## Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `LINKEDIN_EMAIL` / `LINKEDIN_PASSWORD` | LinkedIn credentials |
-| `INDEED_EMAIL` / `INDEED_PASSWORD` | Indeed credentials |
-| `WELLFOUND_EMAIL` / `WELLFOUND_PASSWORD` | Wellfound credentials |
-| `NAUKRI_EMAIL` / `NAUKRI_PASSWORD` | Naukri credentials |
-| `GLASSDOOR_EMAIL` / `GLASSDOOR_PASSWORD` | Glassdoor credentials |
-| `ZIPRECRUITER_EMAIL` / `ZIPRECRUITER_PASSWORD` | ZipRecruiter credentials |
-| `DICE_EMAIL` / `DICE_PASSWORD` | Dice credentials |
-| `GMAIL_EMAIL` / `GMAIL_PASSWORD` | For verification codes |
-| `GEMINI_API_KEY` | For job matching (optional) |
+| `GEMINI_API_KEY` | For AI-powered job matching (optional) |
+| `HEADLESS` | Run browsers in headless mode (default: false) |
 
 ## Troubleshooting
 
 ### CAPTCHA Detected
 System will pause the affected portal and save a screenshot. Manually solve the CAPTCHA, then the system will resume on next cycle.
 
-### Login Failures
+### Session Expired
 ```bash
-# Re-run setup to re-encrypt credentials
-python -m mjas setup
+# Re-run session setup to refresh authentication
+python -m mjas setup-sessions --visible
 ```
 
 ### Rate Limited
