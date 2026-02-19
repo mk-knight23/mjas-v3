@@ -144,6 +144,7 @@ cython_debug/
 # MJAS specific
 config/credentials.key
 config/credentials.env*
+!config/credentials.env.example
 data/*.db
 data/*.json
 data/*.sqlite
