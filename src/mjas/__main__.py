@@ -187,6 +187,102 @@ async def cmd_stats(args):
     return 0
 
 
+async def cmd_setup_sessions(args):
+    """Interactive session setup with Google Sign-In."""
+    from playwright.async_api import async_playwright
+    from mjas.core.session_manager import SessionManager
+    from mjas.portals.registry import TIER_1_PORTALS, TIER_2_PORTALS
+
+    portal_urls = {
+        "linkedin": "https://www.linkedin.com/login",
+        "indeed": "https://secure.indeed.com/account/login",
+        "wellfound": "https://wellfound.com/login",
+        "naukri": "https://www.naukri.com/nlogin/login",
+        "glassdoor": "https://www.glassdoor.com/profile/login_input.htm",
+        "ziprecruiter": "https://www.ziprecruiter.com/auth/login",
+        "dice": "https://www.dice.com/dashboard/login"
+    }
+
+    print("\n" + "=" * 60)
+    print("MJAS Session Setup with Google Sign-In")
+    print("=" * 60)
+    print("\nUse Gmail: kazimusharraf1234@gmail.com")
+    print("\nFor each portal:")
+    print("  1. Click 'Sign in with Google'")
+    print("  2. Sign in with your Gmail")
+    print("  3. Complete any 2FA/security checks")
+    print("  4. Wait for 'Session saved!' message")
+    print("\nPress Ctrl+C to skip a portal.")
+    print("=" * 60 + "\n")
+
+    session_mgr = SessionManager()
+    portals = TIER_1_PORTALS + TIER_2_PORTALS
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)
+
+        for portal in portals:
+            if portal not in portal_urls:
+                continue
+
+            # Skip if session exists and no --force flag
+            if session_mgr.session_exists(portal) and not args.force:
+                print(f"[{portal}] Session already exists (use --force to overwrite)")
+                continue
+
+            print(f"\n[{portal}] Opening login page...")
+            print(f"[{portal}] Please click 'Sign in with Google' and complete login.")
+
+            context = await browser.new_context()
+            page = await context.new_page()
+
+            try:
+                await page.goto(portal_urls[portal])
+
+                # Wait for user to complete login (up to 5 minutes)
+                print(f"[{portal}] Waiting for login (press Ctrl+C to skip)...")
+
+                # Wait for URL change or specific element that indicates logged in state
+                # We'll wait for user to press Enter when done
+                print(f"[{portal}] Press Enter when you've completed login (or Ctrl+C to skip): ", end="", flush=True)
+
+                # Use asyncio to wait for user input without blocking the browser
+                import asyncio
+                try:
+                    # Wait for user input with a timeout
+                    await asyncio.wait_for(
+                        asyncio.get_event_loop().run_in_executor(None, input),
+                        timeout=300  # 5 minutes
+                    )
+                except asyncio.TimeoutError:
+                    print(f"\n[{portal}] Timeout - skipping.")
+                    await context.close()
+                    continue
+
+                # Save session
+                storage_state = await context.storage_state()
+                session_mgr.save_session(portal, storage_state)
+                print(f"[{portal}] Session saved!")
+
+            except KeyboardInterrupt:
+                print(f"\n[{portal}] Skipped by user.")
+            except Exception as e:
+                print(f"\n[{portal}] Error: {e}")
+            finally:
+                try:
+                    await context.close()
+                except Exception:
+                    pass
+
+        await browser.close()
+
+    print("\n" + "=" * 60)
+    print("Session setup complete!")
+    print("Saved sessions: " + ", ".join(session_mgr.list_sessions()))
+    print("=" * 60)
+    return 0
+
+
 async def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -223,6 +319,10 @@ Examples:
     # List portals command
     subparsers.add_parser('list-portals', help='List available job portals')
 
+    # Setup sessions command
+    setup_sessions_parser = subparsers.add_parser('setup-sessions', help='Setup browser sessions with Google Sign-In')
+    setup_sessions_parser.add_argument('--force', action='store_true', help='Overwrite existing sessions')
+
     args = parser.parse_args()
 
     if not args.command:
@@ -240,6 +340,7 @@ Examples:
         'run': cmd_run,
         'stats': cmd_stats,
         'list-portals': cmd_list_portals,
+        'setup-sessions': cmd_setup_sessions,
     }
 
     handler = handlers.get(args.command)
